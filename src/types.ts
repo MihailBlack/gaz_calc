@@ -31,3 +31,18 @@ export interface ChartPoint {
   month: number;
   accumulatedProfitMln: number;
 }
+
+export interface CapexBreakdownRub {
+  total: number;
+  batteries: number;
+  stations: number;
+  generators: number;
+  logistics: number;
+}
+
+export interface InfraResult {
+  stationsCount: number;
+  batteriesCount: number;
+  generatorsCount: number;
+  capex: CapexBreakdownRub;
+}

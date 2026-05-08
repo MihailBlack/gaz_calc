@@ -1,21 +1,15 @@
 import { useMemo } from 'react';
-import { calculateScenario } from '../../calculations';
+import { buildInputsForScenario, calcInfraForScenario, calculateScenario } from '../../calculations';
 import { useBusinessPlanStore } from '../../store/useBusinessPlanStore';
 
 export function Chapter4Investments() {
-  const investments = useBusinessPlanStore((s) => s.investments);
-  const toggleInvestment = useBusinessPlanStore((s) => s.toggleInvestment);
   const inputs = useBusinessPlanStore((s) => s.calculatorInputs);
   const scenario = useBusinessPlanStore((s) => s.calculatorScenario);
+  const quantity = useBusinessPlanStore((s) => s.quantity);
 
-  const adjustedCapex = useMemo(
-    () => Object.values(investments).reduce((sum, item) => (item.enabled ? sum + item.value : sum), 0),
-    [investments],
-  );
-  const adjusted = useMemo(
-    () => calculateScenario({ ...inputs, capex: adjustedCapex }, scenario),
-    [inputs, scenario, adjustedCapex],
-  );
+  const infra = useMemo(() => calcInfraForScenario(scenario, quantity), [scenario, quantity]);
+  const scenarioInputs = useMemo(() => buildInputsForScenario(inputs, scenario, quantity), [inputs, scenario, quantity]);
+  const adjusted = useMemo(() => calculateScenario(scenarioInputs, scenario), [scenarioInputs, scenario]);
 
   return (
     <section className="book-chapter">
@@ -28,19 +22,17 @@ export function Chapter4Investments() {
           </p>
         </div>
         <div className="book-card">
-          <p className="book-label mb-3">Структура CAPEX</p>
+          <p className="book-label mb-3">Живой CAPEX для {quantity} {scenario === 'taxi' ? 'машин/сутки' : 'бизнесов'}</p>
           <div className="space-y-2 text-sm">
-            {Object.entries(investments).map(([key, item]) => (
-              <label key={key} className="flex items-center justify-between gap-2">
-                <span>
-                  <input type="checkbox" checked={item.enabled} onChange={() => toggleInvestment(key as keyof typeof investments)} className="mr-2" />
-                  {item.label}
-                </span>
-                <span>{item.value} млн</span>
-              </label>
-            ))}
+            <p>Станции: <strong>{infra.stationsCount} шт</strong></p>
+            <p>Кассеты: <strong>{infra.batteriesCount} шт</strong></p>
+            <p>ГПУ: <strong>{infra.generatorsCount} шт</strong></p>
+            <p>Кассеты: <strong>{(infra.capex.batteries / 1e6).toFixed(1)} млн руб</strong></p>
+            <p>Станции: <strong>{(infra.capex.stations / 1e6).toFixed(1)} млн руб</strong></p>
+            <p>Генераторы: <strong>{(infra.capex.generators / 1e6).toFixed(1)} млн руб</strong></p>
+            <p>Логистика: <strong>{(infra.capex.logistics / 1e6).toFixed(1)} млн руб</strong></p>
           </div>
-          <p className="mt-3 text-sm">Итоговый CAPEX: <strong>{adjustedCapex.toFixed(1)} млн руб</strong></p>
+          <p className="mt-3 text-sm">Итоговый CAPEX: <strong>{(infra.capex.total / 1e6).toFixed(1)} млн руб</strong></p>
           <p className="text-sm">Окупаемость: <strong>{Number.isFinite(adjusted.paybackMonths) ? `${adjusted.paybackMonths.toFixed(1)} мес` : 'Не окупается'}</strong></p>
         </div>
       </div>

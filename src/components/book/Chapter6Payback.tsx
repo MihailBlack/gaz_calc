@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { calculateScenario } from '../../calculations';
+import { buildInputsForScenario, calculateScenario } from '../../calculations';
 import { useBusinessPlanStore } from '../../store/useBusinessPlanStore';
 
 export function Chapter6Payback() {
@@ -7,11 +7,13 @@ export function Chapter6Payback() {
   const setGasPriceBook = useBusinessPlanStore((s) => s.setGasPriceBook);
   const priceToClientBook = useBusinessPlanStore((s) => s.priceToClientBook);
   const setPriceToClientBook = useBusinessPlanStore((s) => s.setPriceToClientBook);
+  const quantity = useBusinessPlanStore((s) => s.quantity);
   const inputs = useBusinessPlanStore((s) => s.calculatorInputs);
 
+  const taxiInputs = useMemo(() => buildInputsForScenario(inputs, 'taxi', quantity), [inputs, quantity]);
   const results = useMemo(
-    () => calculateScenario({ ...inputs, gasPrice: gasPriceBook, priceToClient: priceToClientBook }, 'taxi'),
-    [inputs, gasPriceBook, priceToClientBook],
+    () => calculateScenario({ ...taxiInputs, gasPrice: gasPriceBook, priceToClient: priceToClientBook }, 'taxi'),
+    [taxiInputs, gasPriceBook, priceToClientBook],
   );
 
   return (

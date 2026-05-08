@@ -1,16 +1,18 @@
 import { useMemo } from 'react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { calculateScenario } from '../calculations';
+import { buildInputsForScenario, calculateScenario } from '../calculations';
 import { useBusinessPlanStore } from '../store/useBusinessPlanStore';
 
 export function ComparePage() {
   const inputs = useBusinessPlanStore((s) => s.calculatorInputs);
+  const quantity = useBusinessPlanStore((s) => s.quantity);
 
   const scenarios = useMemo(() => {
     const gasValues = [8.45, 10, 12];
     return gasValues.map((gasPrice) => {
-      const result = calculateScenario({ ...inputs, gasPrice }, 'taxi');
-      const roi = inputs.capex > 0 ? (result.monthlyProfit * 12) / (inputs.capex * 1e6) : 0;
+      const builtInputs = { ...buildInputsForScenario(inputs, 'taxi', quantity), gasPrice };
+      const result = calculateScenario(builtInputs, 'taxi');
+      const roi = builtInputs.capex > 0 ? (result.monthlyProfit * 12) / (builtInputs.capex * 1e6) : 0;
       return {
         name: `Газ ${gasPrice}`,
         gasPrice,
@@ -20,7 +22,7 @@ export function ComparePage() {
         roiPercent: roi * 100,
       };
     });
-  }, [inputs]);
+  }, [inputs, quantity]);
 
   return (
     <main className="mx-auto max-w-6xl p-4 md:p-6">

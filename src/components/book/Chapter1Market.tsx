@@ -1,16 +1,17 @@
 import { useMemo } from 'react';
-import { calculateScenario } from '../../calculations';
+import { buildInputsForScenario, calculateScenario } from '../../calculations';
 import { useBusinessPlanStore } from '../../store/useBusinessPlanStore';
 
 export function Chapter1Market() {
   const tariffNetwork = useBusinessPlanStore((s) => s.tariffNetwork);
   const setTariffNetwork = useBusinessPlanStore((s) => s.setTariffNetwork);
   const inputs = useBusinessPlanStore((s) => s.calculatorInputs);
-  const scenario = useBusinessPlanStore((s) => s.calculatorScenario);
+  const quantity = useBusinessPlanStore((s) => s.quantity);
 
+  const taxiInputs = useMemo(() => buildInputsForScenario(inputs, 'taxi', quantity), [inputs, quantity]);
   const results = useMemo(
-    () => calculateScenario({ ...inputs, priceToClient: tariffNetwork }, scenario),
-    [inputs, scenario, tariffNetwork],
+    () => calculateScenario({ ...taxiInputs, priceToClient: tariffNetwork }, 'taxi'),
+    [taxiInputs, tariffNetwork],
   );
 
   return (

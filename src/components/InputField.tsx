@@ -3,17 +3,18 @@ interface InputFieldProps {
   value: number;
   unit?: string;
   step?: number;
+  min?: number;
   onChange: (value: number) => void;
 }
 
-export function InputField({ label, value, unit, step = 0.01, onChange }: InputFieldProps) {
+export function InputField({ label, value, unit, step = 0.01, min = 0, onChange }: InputFieldProps) {
   return (
     <label className="flex flex-col gap-1 text-sm text-slate-700">
       <span className="font-medium">{label}</span>
       <div className="flex items-center gap-2">
         <input
           type="number"
-          min={0}
+          min={min}
           step={step}
           value={value}
           onChange={(event) => onChange(Number(event.target.value))}

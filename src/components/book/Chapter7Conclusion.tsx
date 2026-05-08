@@ -1,14 +1,17 @@
 import { useMemo } from 'react';
-import { calculateScenario } from '../../calculations';
+import { buildInputsForScenario, calculateScenario } from '../../calculations';
 import { useBusinessPlanStore } from '../../store/useBusinessPlanStore';
 
 export function Chapter7Conclusion() {
   const showB2B = useBusinessPlanStore((s) => s.showB2BInBook);
   const toggleB2B = useBusinessPlanStore((s) => s.toggleBookB2B);
   const inputs = useBusinessPlanStore((s) => s.calculatorInputs);
+  const quantity = useBusinessPlanStore((s) => s.quantity);
 
-  const taxi = useMemo(() => calculateScenario(inputs, 'taxi'), [inputs]);
-  const business = useMemo(() => calculateScenario(inputs, 'business'), [inputs]);
+  const taxiInputs = useMemo(() => buildInputsForScenario(inputs, 'taxi', quantity), [inputs, quantity]);
+  const businessInputs = useMemo(() => buildInputsForScenario(inputs, 'business', quantity), [inputs, quantity]);
+  const taxi = useMemo(() => calculateScenario(taxiInputs, 'taxi'), [taxiInputs]);
+  const business = useMemo(() => calculateScenario(businessInputs, 'business'), [businessInputs]);
 
   return (
     <section className="book-chapter">

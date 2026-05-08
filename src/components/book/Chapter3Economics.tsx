@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { calculateScenario } from '../../calculations';
+import { buildInputsForScenario, calculateScenario } from '../../calculations';
 import { useBusinessPlanStore } from '../../store/useBusinessPlanStore';
 
 export function Chapter3Economics() {
@@ -7,11 +7,13 @@ export function Chapter3Economics() {
   const setGasPriceBook = useBusinessPlanStore((s) => s.setGasPriceBook);
   const inputs = useBusinessPlanStore((s) => s.calculatorInputs);
   const scenario = useBusinessPlanStore((s) => s.calculatorScenario);
+  const quantity = useBusinessPlanStore((s) => s.quantity);
 
-  const baseResults = useMemo(() => calculateScenario(inputs, scenario), [inputs, scenario]);
+  const baseInputs = useMemo(() => buildInputsForScenario(inputs, scenario, quantity), [inputs, scenario, quantity]);
+  const baseResults = useMemo(() => calculateScenario(baseInputs, scenario), [baseInputs, scenario]);
   const bookResults = useMemo(
-    () => calculateScenario({ ...inputs, gasPrice: gasPriceBook }, scenario),
-    [inputs, scenario, gasPriceBook],
+    () => calculateScenario({ ...baseInputs, gasPrice: gasPriceBook }, scenario),
+    [baseInputs, scenario, gasPriceBook],
   );
 
   return (
