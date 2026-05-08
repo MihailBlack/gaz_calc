@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Merriweather:wght@400;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -9,4 +11,28 @@ body {
 
 #root {
   @apply min-h-screen;
+}
+
+.book-page {
+  background: #fef9e8;
+}
+
+.book-chapter {
+  @apply mb-6 rounded-xl border border-amber-200 bg-white/70 p-5 shadow-sm;
+}
+
+.book-grid {
+  @apply grid grid-cols-1 gap-8 md:grid-cols-2;
+}
+
+.book-card {
+  @apply rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-sm;
+}
+
+.book-label {
+  @apply text-sm font-semibold text-amber-900;
+}
+
+.book-page .prose {
+  font-family: Merriweather, Georgia, serif;
 }
