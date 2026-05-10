@@ -9,12 +9,23 @@ export function Chapter7Conclusion() {
   const showB2B = useBusinessPlanStore((s) => s.showB2BInBook);
   const toggleB2B = useBusinessPlanStore((s) => s.toggleBookB2B);
   const inputs = useBusinessPlanStore((s) => s.calculatorInputs);
+  const batterySellingPricePerKwh = useBusinessPlanStore((s) => s.batterySellingPricePerKwh);
+  const batterySoldImmediate = useBusinessPlanStore((s) => s.batterySoldImmediate);
+  const batteryInstallment12 = useBusinessPlanStore((s) => s.batteryInstallment12);
+
+  const b2bOpts = useMemo(
+    () => ({ batterySellingPricePerKwh, batterySoldImmediate, batteryInstallment12 }),
+    [batterySellingPricePerKwh, batterySoldImmediate, batteryInstallment12],
+  );
 
   const taxiInfra = useMemo(() => calcInfraForTaxi(REF_TAXI_CARS), []);
   const taxiInputs = useMemo(() => buildInputsForTaxi(inputs, REF_TAXI_CARS), [inputs]);
   const taxi = useMemo(() => calculateScenario(taxiInputs, 'taxi'), [taxiInputs]);
 
-  const businessEconomics = useMemo(() => calculateBusinessEconomics(inputs, REF_BUSINESS_COUNT), [inputs]);
+  const businessEconomics = useMemo(
+    () => calculateBusinessEconomics(inputs, REF_BUSINESS_COUNT, b2bOpts),
+    [inputs, b2bOpts],
+  );
 
   const netInvestBiz = businessEconomics.netInvestmentRub;
 

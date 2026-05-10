@@ -11,13 +11,21 @@ export function Chapter4Investments() {
   const inputs = useBusinessPlanStore((s) => s.calculatorInputs);
   const scenario = useBusinessPlanStore((s) => s.calculatorScenario);
   const quantity = useBusinessPlanStore((s) => s.quantity);
+  const batterySellingPricePerKwh = useBusinessPlanStore((s) => s.batterySellingPricePerKwh);
+  const batterySoldImmediate = useBusinessPlanStore((s) => s.batterySoldImmediate);
+  const batteryInstallment12 = useBusinessPlanStore((s) => s.batteryInstallment12);
+
+  const b2bOpts = useMemo(
+    () => ({ batterySellingPricePerKwh, batterySoldImmediate, batteryInstallment12 }),
+    [batterySellingPricePerKwh, batterySoldImmediate, batteryInstallment12],
+  );
 
   const infra = useMemo(() => calcInfraForScenario(scenario, quantity), [scenario, quantity]);
   const taxiInputs = useMemo(() => buildInputsForTaxi(inputs, quantity), [inputs, quantity]);
   const taxiAdjusted = useMemo(() => calculateScenario(taxiInputs, 'taxi'), [taxiInputs]);
   const businessEconomics = useMemo(
-    () => (scenario === 'business' ? calculateBusinessEconomics(inputs, quantity) : null),
-    [scenario, inputs, quantity],
+    () => (scenario === 'business' ? calculateBusinessEconomics(inputs, quantity, b2bOpts) : null),
+    [scenario, inputs, quantity, b2bOpts],
   );
 
   return (

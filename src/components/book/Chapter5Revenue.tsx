@@ -8,11 +8,19 @@ export function Chapter5Revenue() {
   const quantity = useBusinessPlanStore((s) => s.quantity);
   const setQuantity = useBusinessPlanStore((s) => s.setQuantity);
   const inputs = useBusinessPlanStore((s) => s.calculatorInputs);
+  const batterySellingPricePerKwh = useBusinessPlanStore((s) => s.batterySellingPricePerKwh);
+  const batterySoldImmediate = useBusinessPlanStore((s) => s.batterySoldImmediate);
+  const batteryInstallment12 = useBusinessPlanStore((s) => s.batteryInstallment12);
+
+  const b2bOpts = useMemo(
+    () => ({ batterySellingPricePerKwh, batterySoldImmediate, batteryInstallment12 }),
+    [batterySellingPricePerKwh, batterySoldImmediate, batteryInstallment12],
+  );
 
   const taxiInputs = useMemo(() => buildInputsForTaxi(inputs, quantity), [inputs, quantity]);
   const taxiResults = useMemo(() => calculateScenario(taxiInputs, 'taxi'), [taxiInputs]);
 
-  const businessEconomics = useMemo(() => calculateBusinessEconomics(inputs, quantity), [inputs, quantity]);
+  const businessEconomics = useMemo(() => calculateBusinessEconomics(inputs, quantity, b2bOpts), [inputs, quantity, b2bOpts]);
 
   const chartData = useMemo(
     () =>
@@ -23,10 +31,10 @@ export function Chapter5Revenue() {
           const r = calculateScenario(built, 'taxi');
           return { qty, profitMln: r.monthlyProfit / 1e6 };
         }
-        const be = calculateBusinessEconomics(inputs, qty);
+        const be = calculateBusinessEconomics(inputs, qty, b2bOpts);
         return { qty, profitMln: be.monthlyProfitFromService / 1e6 };
       }),
-    [inputs, scenario],
+    [inputs, scenario, b2bOpts],
   );
 
   return (

@@ -8,6 +8,14 @@ export function Chapter3Economics() {
   const inputs = useBusinessPlanStore((s) => s.calculatorInputs);
   const scenario = useBusinessPlanStore((s) => s.calculatorScenario);
   const quantity = useBusinessPlanStore((s) => s.quantity);
+  const batterySellingPricePerKwh = useBusinessPlanStore((s) => s.batterySellingPricePerKwh);
+  const batterySoldImmediate = useBusinessPlanStore((s) => s.batterySoldImmediate);
+  const batteryInstallment12 = useBusinessPlanStore((s) => s.batteryInstallment12);
+
+  const b2bOpts = useMemo(
+    () => ({ batterySellingPricePerKwh, batterySoldImmediate, batteryInstallment12 }),
+    [batterySellingPricePerKwh, batterySoldImmediate, batteryInstallment12],
+  );
 
   const baseTaxi = useMemo(() => buildInputsForTaxi(inputs, quantity), [inputs, quantity]);
   const baseTaxiResults = useMemo(() => calculateScenario(baseTaxi, 'taxi'), [baseTaxi]);
@@ -16,10 +24,10 @@ export function Chapter3Economics() {
     [baseTaxi, gasPriceBook],
   );
 
-  const baseBusiness = useMemo(() => calculateBusinessEconomics(inputs, quantity), [inputs, quantity]);
+  const baseBusiness = useMemo(() => calculateBusinessEconomics(inputs, quantity, b2bOpts), [inputs, quantity, b2bOpts]);
   const bookBusiness = useMemo(
-    () => calculateBusinessEconomics({ ...inputs, gasPrice: gasPriceBook }, quantity),
-    [inputs, quantity, gasPriceBook],
+    () => calculateBusinessEconomics({ ...inputs, gasPrice: gasPriceBook }, quantity, b2bOpts),
+    [inputs, quantity, gasPriceBook, b2bOpts],
   );
 
   return (

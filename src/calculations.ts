@@ -6,12 +6,28 @@ import type {
   Scenario,
   ScenarioResults,
 } from './types';
+import {
+  BATTERY_PRODUCTION_COST_PER_KWH,
+  BATTERY_SELLING_PRICE_DEFAULT_PER_KWH,
+  BATTERY_SELLING_PRICE_MAX_PER_KWH,
+} from './config/batteryPricing';
 
-/** B2B: цена кассеты бизнесу 10k/кВт·ч, себес производства 6k/кВт·ч */
-export const BATTERY_SELLING_PRICE_PER_KWH = 10_000;
-export const BATTERY_PRODUCTION_COST_PER_KWH = 6_000;
+export { BATTERY_PRODUCTION_COST_PER_KWH } from './config/batteryPricing';
+
 export const B2B_HUB_CAPEX_RUB = 5_000_000;
 export const B2B_LOGISTICS_PER_BUSINESS_MONTH = 5_000;
+
+export interface CalculateBusinessEconomicsOptions {
+  batterySellingPricePerKwh: number;
+  batterySoldImmediate: boolean;
+  batteryInstallment12: boolean;
+}
+
+export const DEFAULT_B2B_BATTERY_OPTIONS: CalculateBusinessEconomicsOptions = {
+  batterySellingPricePerKwh: BATTERY_SELLING_PRICE_DEFAULT_PER_KWH,
+  batterySoldImmediate: true,
+  batteryInstallment12: false,
+};
 
 export const DEFAULT_INPUTS: Inputs = {
   gasPrice: 8.45,
@@ -107,12 +123,10 @@ export function calcInfraForTaxi(carsPerDay: number): InfraResult {
   };
 }
 
-/** B2B: только ваш CAPEX (ГПУ + фургоны + хаб). Станций у клиента нет; кассеты не в CAPEX */
+/** B2B: только ваш CAPEX (ГПУ + фургоны + хаб). ГПУ: 1 на каждые 30 бизнесов (округление вверх) */
 export function calcInfraForBusiness(businessesCount: number): InfraResult {
   const batteryModulesSold = businessesCount * 4;
-  let generatorsNeeded = 1;
-  if (businessesCount > 20) generatorsNeeded = 2;
-  if (businessesCount > 50) generatorsNeeded = 3;
+  const generatorsNeeded = Math.max(1, Math.ceil(businessesCount / 30));
 
   const capexGenerators = generatorsNeeded * 8_500_000;
   const capexLogistics = 5_000_000 * Math.ceil(businessesCount / 50);
@@ -159,15 +173,30 @@ export function buildInputsForScenario(baseInputs: Inputs, scenario: Scenario, q
   };
 }
 
-export function calculateBusinessEconomics(inputs: Inputs, businessesCount: number): BusinessEconomics {
+function clampBatterySellingPrice(perKwh: number): number {
+  return Math.min(Math.max(0, perKwh), BATTERY_SELLING_PRICE_MAX_PER_KWH);
+}
+
+export function calculateBusinessEconomics(
+  inputs: Inputs,
+  businessesCount: number,
+  options: CalculateBusinessEconomicsOptions = DEFAULT_B2B_BATTERY_OPTIONS,
+): BusinessEconomics {
   const infra = calcInfraForBusiness(businessesCount);
   const fullCostPerKwh = getFullCostPerKwh(inputs);
   const dailyKwhPerBusiness = inputs.dailyKwhPerBusiness;
 
+  const installment12 = options.batteryInstallment12;
+  const batterySoldImmediate = installment12 ? false : options.batterySoldImmediate;
+
+  const batterySellingPricePerKwh = clampBatterySellingPrice(options.batterySellingPricePerKwh);
+
   const batteryModulesSold = businessesCount * 4;
   const totalBatteryKwh = batteryModulesSold * 60;
-  const revenueFromBatterySale = totalBatteryKwh * BATTERY_SELLING_PRICE_PER_KWH;
-  const profitFromBatterySale = totalBatteryKwh * (BATTERY_SELLING_PRICE_PER_KWH - BATTERY_PRODUCTION_COST_PER_KWH);
+  const revenueFromBatterySale = totalBatteryKwh * batterySellingPricePerKwh;
+  const costOfGoodsSold = totalBatteryKwh * BATTERY_PRODUCTION_COST_PER_KWH;
+  const profitFromBatterySale = revenueFromBatterySale - costOfGoodsSold;
+  const profitPerBatteryModuleRub = (batterySellingPricePerKwh - BATTERY_PRODUCTION_COST_PER_KWH) * 60;
 
   const capexYourRub = infra.capex.total;
   const monthlyRevenueFromService = businessesCount * dailyKwhPerBusiness * 30 * inputs.priceToBusiness;
@@ -176,29 +205,58 @@ export function calculateBusinessEconomics(inputs: Inputs, businessesCount: numb
   const monthlyProfitFromService = monthlyRevenueFromService - monthlyGasServiceCost - monthlyLogisticsCost;
 
   const netInvestmentRub = capexYourRub - profitFromBatterySale;
+  const netInvestmentIfBatteryPriceZeroRub = capexYourRub + costOfGoodsSold;
+
+  let monthlyCashFlowForPayback: number;
   let paybackMonths: number;
-  if (netInvestmentRub <= 0) {
+
+  if (installment12) {
+    monthlyCashFlowForPayback = monthlyProfitFromService + profitFromBatterySale / 12;
+    if (monthlyCashFlowForPayback > 0) {
+      paybackMonths = capexYourRub / monthlyCashFlowForPayback;
+    } else {
+      paybackMonths = Number.POSITIVE_INFINITY;
+    }
+  } else if (netInvestmentRub <= 0) {
+    monthlyCashFlowForPayback = monthlyProfitFromService;
     paybackMonths = 0;
   } else if (monthlyProfitFromService > 0) {
+    monthlyCashFlowForPayback = monthlyProfitFromService;
     paybackMonths = netInvestmentRub / monthlyProfitFromService;
   } else {
+    monthlyCashFlowForPayback = monthlyProfitFromService;
     paybackMonths = Number.POSITIVE_INFINITY;
+  }
+
+  let paybackMonthsIfBatteryPriceZero: number;
+  if (monthlyProfitFromService > 0) {
+    paybackMonthsIfBatteryPriceZero = netInvestmentIfBatteryPriceZeroRub / monthlyProfitFromService;
+  } else {
+    paybackMonthsIfBatteryPriceZero = Number.POSITIVE_INFINITY;
   }
 
   return {
     businessesCount,
     batteryModulesSold,
     totalBatteryKwh,
+    batterySellingPricePerKwh,
     revenueFromBatterySale,
+    costOfGoodsSold,
     profitFromBatterySale,
+    profitPerBatteryModuleRub,
     capexYourRub,
     netInvestmentRub,
+    netInvestmentIfBatteryPriceZeroRub,
     monthlyProfitFromService,
     monthlyRevenueFromService,
     monthlyGasServiceCost,
     monthlyLogisticsCost,
+    batterySoldImmediate,
+    installment12,
+    monthlyCashFlowForPayback,
     paybackMonths,
     paybackYears: Number.isFinite(paybackMonths) ? paybackMonths / 12 : Number.POSITIVE_INFINITY,
+    paybackMonthsIfBatteryPriceZero,
     fullCostPerKwh,
   };
 }
@@ -216,23 +274,36 @@ export function buildPaybackSeries(monthlyProfit: number, paybackMonths: number)
   }));
 }
 
-/** Накопленный денежный поток после старта: −чистые инвестиции + ежемесячная прибыль от замены × месяц */
-export function buildBusinessCashSeries(monthlyProfitFromService: number, netInvestmentRub: number): ChartPoint[] {
-  const paybackMonths =
-    netInvestmentRub <= 0
-      ? 0
-      : monthlyProfitFromService > 0
-        ? netInvestmentRub / monthlyProfitFromService
-        : Number.POSITIVE_INFINITY;
-  const monthsLimit = Number.isFinite(paybackMonths)
-    ? Math.ceil(paybackMonths) + 6
+/** Накопленный денежный поток (млн руб): зависит от режима продажи кассет */
+export function buildBusinessCashSeries(be: BusinessEconomics): ChartPoint[] {
+  let paybackMonthsForLimit: number;
+  if (be.installment12) {
+    paybackMonthsForLimit =
+      be.monthlyCashFlowForPayback > 0 ? be.capexYourRub / be.monthlyCashFlowForPayback : Number.POSITIVE_INFINITY;
+  } else if (be.netInvestmentRub <= 0) {
+    paybackMonthsForLimit = 0;
+  } else {
+    paybackMonthsForLimit =
+      be.monthlyProfitFromService > 0 ? be.netInvestmentRub / be.monthlyProfitFromService : Number.POSITIVE_INFINITY;
+  }
+
+  const monthsLimit = Number.isFinite(paybackMonthsForLimit)
+    ? Math.ceil(paybackMonthsForLimit) + 6
     : SAFE_PAYBACK_MONTHS_FOR_CHART;
   const safeMonthsLimit = Math.min(Math.max(monthsLimit, 6), 240);
 
-  return Array.from({ length: safeMonthsLimit + 1 }, (_, month) => ({
-    month,
-    accumulatedProfitMln: (-netInvestmentRub + monthlyProfitFromService * month) / 1e6,
-  }));
+  return Array.from({ length: safeMonthsLimit + 1 }, (_, month) => {
+    let accumulatedRub: number;
+    if (be.installment12) {
+      accumulatedRub = -be.capexYourRub + be.monthlyCashFlowForPayback * month;
+    } else {
+      accumulatedRub = -be.netInvestmentRub + be.monthlyProfitFromService * month;
+    }
+    return {
+      month,
+      accumulatedProfitMln: accumulatedRub / 1e6,
+    };
+  });
 }
 
 export function generateInvestorSummary(
@@ -244,21 +315,47 @@ export function generateInvestorSummary(
 ): string {
   if (scenario === 'business' && businessEconomics) {
     const be = businessEconomics;
-    const paybackText =
-      be.netInvestmentRub <= 0
-        ? '0 мес (чистые инвестиции неположительные: продажа кассет покрывает ваш CAPEX)'
+    const mlns = (x: number) => (x / 1e6).toFixed(1);
+    const mlns2 = (x: number) => (x / 1e6).toFixed(2);
+
+    const paybackPrimary =
+      be.paybackMonths <= 0 && !be.installment12
+        ? 'окупается мгновенно по чистым инвестициям'
         : Number.isFinite(be.paybackMonths)
-          ? `${be.paybackMonths.toFixed(1)} мес (${be.paybackYears.toFixed(1)} года)`
+          ? `окупаемость по выбранной модели — ${be.paybackMonths.toFixed(1)} мес (${be.paybackYears.toFixed(1)} года)`
           : 'не достигается при текущих параметрах';
 
+    const paybackZero =
+      Number.isFinite(be.paybackMonthsIfBatteryPriceZero)
+        ? `${be.paybackMonthsIfBatteryPriceZero.toFixed(1)} мес (${(be.paybackMonthsIfBatteryPriceZero / 12).toFixed(1)} лет)`
+        : 'не достигается';
+
+    const breakevenPrice =
+      be.totalBatteryKwh > 0 ? BATTERY_PRODUCTION_COST_PER_KWH + be.capexYourRub / be.totalBatteryKwh : null;
+
+    let modeClause = '';
+    if (be.installment12) {
+      modeClause = ` Режим рассрочки 12 мес: прибыль от кассет по ${mlns2(be.profitFromBatterySale / 12)} млн руб/мес добавляется к потоку замены; окупаемость инфраструктуры считается как CAPEX / комбинированный месячный поток.`;
+    } else if (be.batterySoldImmediate) {
+      modeClause = ' Продажа кассет — разово в первый месяц.';
+    }
+
+    const comparisonZero =
+      be.batterySellingPricePerKwh > 0
+        ? ` Если бы кассеты отдавались бесплатно (0 руб/кВт·ч), суммарная нагрузка была бы ${mlns(be.netInvestmentIfBatteryPriceZeroRub)} млн руб (инфраструктура + себестоимость кассет), окупаемость только за счёт замены — ${paybackZero}.`
+        : ` При нулевой цене кассеты для клиента ваши совокупные затраты ${mlns(be.netInvestmentIfBatteryPriceZeroRub)} млн руб окупаются за счёт услуги замены за ${paybackZero}.`;
+
+    let hint = '';
+    if (breakevenPrice !== null && be.batterySellingPricePerKwh < breakevenPrice - 1) {
+      hint = ` Чтобы полностью покрыть инфраструктуру маржой от кассет, цена продажи могла бы быть не ниже ~${Math.ceil(breakevenPrice)} руб/кВт·ч (оценка).`;
+    }
+
     return (
-      `Сценарий поставки кассет и услуги замены для бизнеса (B2B): вы получаете деньги за кассеты в момент продажи, ` +
-      `покрывая инвестиции в ГПУ, хаб и логистику; далее — ежемесячная прибыль от услуги замены. ` +
-      `Ваш CAPEX ${(be.capexYourRub / 1e6).toFixed(1)} млн руб не включает кассеты у клиента — они проданы. ` +
-      `Разовая выручка от продажи кассет ${(be.revenueFromBatterySale / 1e6).toFixed(1)} млн руб, разовая прибыль ${(be.profitFromBatterySale / 1e6).toFixed(1)} млн руб. ` +
-      `Чистые инвестиции (CAPEX − прибыль от продажи кассет): ${(be.netInvestmentRub / 1e6).toFixed(1)} млн руб. ` +
-      `Ежемесячная прибыль от замены: ${(be.monthlyProfitFromService / 1e6).toFixed(2)} млн руб. ` +
-      `Окупаемость по потоку замены: ${paybackText}.`
+      `Вы продаёте ${be.batteryModulesSold} кассет (${be.totalBatteryKwh.toLocaleString('ru-RU')} кВт·ч) по ${be.batterySellingPricePerKwh.toLocaleString('ru-RU')} руб/кВт·ч. ` +
+      `Выручка от кассет ${mlns(be.revenueFromBatterySale)} млн руб, валовая прибыль ${mlns(be.profitFromBatterySale)} млн руб. ` +
+      `Инвестиции в ГПУ, хаб и логистику ${mlns(be.capexYourRub)} млн руб; чистые инвестиции после учёта прибыли с кассет ${mlns(be.netInvestmentRub)} млн руб.${modeClause} ` +
+      `${be.netInvestmentRub < 0 ? 'Чистые инвестиции отрицательные — инфраструктура покрывается маржой от продажи кассет; дальше вы получаете ' : 'Дальше вы получаете '}` +
+      `${mlns2(be.monthlyProfitFromService)} млн руб/мес от услуги замены. ${paybackPrimary}.${comparisonZero}${hint}`
     );
   }
 
