@@ -20,6 +20,8 @@ export {
 
 export const B2B_HUB_CAPEX_RUB = 5_000_000;
 export const B2B_LOGISTICS_PER_BUSINESS_MONTH = 5_000;
+/** Один B2B-клиент — одна кассетная модуль к продаже */
+export const B2B_BATTERY_MODULES_PER_BUSINESS = 1;
 
 export interface CalculateBusinessEconomicsOptions {
   batterySellingPricePerKwh: number;
@@ -134,7 +136,7 @@ export function calcInfraForTaxi(
 
 /** B2B: только ваш CAPEX (ГПУ + фургоны + хаб). ГПУ: 1 на каждые 30 бизнесов (округление вверх) */
 export function calcInfraForBusiness(businessesCount: number): InfraResult {
-  const batteryModulesSold = businessesCount * 4;
+  const batteryModulesSold = businessesCount * B2B_BATTERY_MODULES_PER_BUSINESS;
   const generatorsNeeded = Math.max(1, Math.ceil(businessesCount / 30));
 
   const capexGenerators = generatorsNeeded * 8_500_000;
@@ -214,7 +216,7 @@ export function calculateBusinessEconomics(
   const batterySellingPricePerKwh = clampBatterySellingPrice(options.batterySellingPricePerKwh);
   const batteryProductionCostPerKwh = clampBatteryProductionCost(options.batteryProductionCostPerKwh);
 
-  const batteryModulesSold = businessesCount * 4;
+  const batteryModulesSold = businessesCount * B2B_BATTERY_MODULES_PER_BUSINESS;
   const totalBatteryKwh = batteryModulesSold * 60;
   const revenueFromBatterySale = totalBatteryKwh * batterySellingPricePerKwh;
   const costOfGoodsSold = totalBatteryKwh * batteryProductionCostPerKwh;
