@@ -101,7 +101,7 @@ export function calcInfraForTaxi(carsPerDay: number): InfraResult {
   if (carsPerDay > 200) generatorsNeeded = 3;
   if (carsPerDay > 500) generatorsNeeded = Math.ceil(carsPerDay / 200);
 
-  const capexBatteries = batteriesNeeded * 60 * 6000;
+  const capexBatteries = batteriesNeeded * 60 * BATTERY_PRODUCTION_COST_PER_KWH;
   const capexStations = stationsNeeded * 1_000_000;
   const capexGenerators = generatorsNeeded * 8_500_000;
   const capexLogistics = 7_000_000;
