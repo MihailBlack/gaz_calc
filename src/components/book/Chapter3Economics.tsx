@@ -9,15 +9,24 @@ export function Chapter3Economics() {
   const scenario = useBusinessPlanStore((s) => s.calculatorScenario);
   const quantity = useBusinessPlanStore((s) => s.quantity);
   const batterySellingPricePerKwh = useBusinessPlanStore((s) => s.batterySellingPricePerKwh);
+  const batteryProductionCostPerKwh = useBusinessPlanStore((s) => s.batteryProductionCostPerKwh);
   const batterySoldImmediate = useBusinessPlanStore((s) => s.batterySoldImmediate);
   const batteryInstallment12 = useBusinessPlanStore((s) => s.batteryInstallment12);
 
   const b2bOpts = useMemo(
-    () => ({ batterySellingPricePerKwh, batterySoldImmediate, batteryInstallment12 }),
-    [batterySellingPricePerKwh, batterySoldImmediate, batteryInstallment12],
+    () => ({
+      batterySellingPricePerKwh,
+      batteryProductionCostPerKwh,
+      batterySoldImmediate,
+      batteryInstallment12,
+    }),
+    [batterySellingPricePerKwh, batteryProductionCostPerKwh, batterySoldImmediate, batteryInstallment12],
   );
 
-  const baseTaxi = useMemo(() => buildInputsForTaxi(inputs, quantity), [inputs, quantity]);
+  const baseTaxi = useMemo(
+    () => buildInputsForTaxi(inputs, quantity, batteryProductionCostPerKwh),
+    [inputs, quantity, batteryProductionCostPerKwh],
+  );
   const baseTaxiResults = useMemo(() => calculateScenario(baseTaxi, 'taxi'), [baseTaxi]);
   const bookTaxiResults = useMemo(
     () => calculateScenario({ ...baseTaxi, gasPrice: gasPriceBook }, 'taxi'),

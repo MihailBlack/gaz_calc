@@ -12,16 +12,28 @@ export function Chapter4Investments() {
   const scenario = useBusinessPlanStore((s) => s.calculatorScenario);
   const quantity = useBusinessPlanStore((s) => s.quantity);
   const batterySellingPricePerKwh = useBusinessPlanStore((s) => s.batterySellingPricePerKwh);
+  const batteryProductionCostPerKwh = useBusinessPlanStore((s) => s.batteryProductionCostPerKwh);
   const batterySoldImmediate = useBusinessPlanStore((s) => s.batterySoldImmediate);
   const batteryInstallment12 = useBusinessPlanStore((s) => s.batteryInstallment12);
 
   const b2bOpts = useMemo(
-    () => ({ batterySellingPricePerKwh, batterySoldImmediate, batteryInstallment12 }),
-    [batterySellingPricePerKwh, batterySoldImmediate, batteryInstallment12],
+    () => ({
+      batterySellingPricePerKwh,
+      batteryProductionCostPerKwh,
+      batterySoldImmediate,
+      batteryInstallment12,
+    }),
+    [batterySellingPricePerKwh, batteryProductionCostPerKwh, batterySoldImmediate, batteryInstallment12],
   );
 
-  const infra = useMemo(() => calcInfraForScenario(scenario, quantity), [scenario, quantity]);
-  const taxiInputs = useMemo(() => buildInputsForTaxi(inputs, quantity), [inputs, quantity]);
+  const infra = useMemo(
+    () => calcInfraForScenario(scenario, quantity, batteryProductionCostPerKwh),
+    [scenario, quantity, batteryProductionCostPerKwh],
+  );
+  const taxiInputs = useMemo(
+    () => buildInputsForTaxi(inputs, quantity, batteryProductionCostPerKwh),
+    [inputs, quantity, batteryProductionCostPerKwh],
+  );
   const taxiAdjusted = useMemo(() => calculateScenario(taxiInputs, 'taxi'), [taxiInputs]);
   const businessEconomics = useMemo(
     () => (scenario === 'business' ? calculateBusinessEconomics(inputs, quantity, b2bOpts) : null),

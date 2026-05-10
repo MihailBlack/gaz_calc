@@ -1,7 +1,12 @@
 import { create } from 'zustand';
 import { DEFAULT_INPUTS, sanitizeNonNegative } from '../calculations';
 import type { Inputs, Scenario } from '../types';
-import { BATTERY_SELLING_PRICE_DEFAULT_PER_KWH, BATTERY_SELLING_PRICE_MAX_PER_KWH } from '../config/batteryPricing';
+import {
+  BATTERY_PRODUCTION_COST_DEFAULT_PER_KWH,
+  BATTERY_PRODUCTION_COST_MAX_PER_KWH,
+  BATTERY_SELLING_PRICE_DEFAULT_PER_KWH,
+  BATTERY_SELLING_PRICE_MAX_PER_KWH,
+} from '../config/batteryPricing';
 
 interface BusinessPlanState {
   calculatorScenario: Scenario;
@@ -12,6 +17,7 @@ interface BusinessPlanState {
   priceToClientBook: number;
   showB2BInBook: boolean;
   batterySellingPricePerKwh: number;
+  batteryProductionCostPerKwh: number;
   batterySoldImmediate: boolean;
   batteryInstallment12: boolean;
   setCalculatorScenario: (scenario: Scenario) => void;
@@ -23,6 +29,7 @@ interface BusinessPlanState {
   setPriceToClientBook: (value: number) => void;
   toggleBookB2B: (value: boolean) => void;
   setBatterySellingPricePerKwh: (value: number) => void;
+  setBatteryProductionCostPerKwh: (value: number) => void;
   setBatterySoldImmediate: (value: boolean) => void;
   setBatteryInstallment12: (value: boolean) => void;
 }
@@ -36,6 +43,7 @@ export const useBusinessPlanStore = create<BusinessPlanState>((set) => ({
   priceToClientBook: 14,
   showB2BInBook: false,
   batterySellingPricePerKwh: BATTERY_SELLING_PRICE_DEFAULT_PER_KWH,
+  batteryProductionCostPerKwh: BATTERY_PRODUCTION_COST_DEFAULT_PER_KWH,
   batterySoldImmediate: true,
   batteryInstallment12: false,
   setCalculatorScenario: (scenario) => set({ calculatorScenario: scenario, quantity: scenario === 'taxi' ? 400 : 100 }),
@@ -53,6 +61,7 @@ export const useBusinessPlanStore = create<BusinessPlanState>((set) => ({
       calculatorInputs: DEFAULT_INPUTS,
       quantity: 400,
       batterySellingPricePerKwh: BATTERY_SELLING_PRICE_DEFAULT_PER_KWH,
+      batteryProductionCostPerKwh: BATTERY_PRODUCTION_COST_DEFAULT_PER_KWH,
       batterySoldImmediate: true,
       batteryInstallment12: false,
     }),
@@ -65,6 +74,13 @@ export const useBusinessPlanStore = create<BusinessPlanState>((set) => ({
       batterySellingPricePerKwh: Math.min(
         Math.max(0, sanitizeNonNegative(value)),
         BATTERY_SELLING_PRICE_MAX_PER_KWH,
+      ),
+    }),
+  setBatteryProductionCostPerKwh: (value) =>
+    set({
+      batteryProductionCostPerKwh: Math.min(
+        Math.max(0, sanitizeNonNegative(value)),
+        BATTERY_PRODUCTION_COST_MAX_PER_KWH,
       ),
     }),
   setBatterySoldImmediate: (value) =>

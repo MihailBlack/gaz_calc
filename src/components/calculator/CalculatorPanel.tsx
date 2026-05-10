@@ -11,7 +11,7 @@ import {
 } from '../../calculations';
 import type { ScenarioResults } from '../../types';
 import {
-  BATTERY_PRODUCTION_COST_PER_KWH,
+  BATTERY_PRODUCTION_COST_MAX_PER_KWH,
   BATTERY_SELLING_PRICE_MAX_PER_KWH,
 } from '../../config/batteryPricing';
 import { useBusinessPlanStore } from '../../store/useBusinessPlanStore';
@@ -26,6 +26,7 @@ export function CalculatorPanel() {
   const inputs = useBusinessPlanStore((s) => s.calculatorInputs);
   const quantity = useBusinessPlanStore((s) => s.quantity);
   const batterySellingPricePerKwh = useBusinessPlanStore((s) => s.batterySellingPricePerKwh);
+  const batteryProductionCostPerKwh = useBusinessPlanStore((s) => s.batteryProductionCostPerKwh);
   const batterySoldImmediate = useBusinessPlanStore((s) => s.batterySoldImmediate);
   const batteryInstallment12 = useBusinessPlanStore((s) => s.batteryInstallment12);
   const setScenario = useBusinessPlanStore((s) => s.setCalculatorScenario);
@@ -33,21 +34,29 @@ export function CalculatorPanel() {
   const setQuantity = useBusinessPlanStore((s) => s.setQuantity);
   const resetDefaults = useBusinessPlanStore((s) => s.resetCalculatorDefaults);
   const setBatterySellingPricePerKwh = useBusinessPlanStore((s) => s.setBatterySellingPricePerKwh);
+  const setBatteryProductionCostPerKwh = useBusinessPlanStore((s) => s.setBatteryProductionCostPerKwh);
   const setBatterySoldImmediate = useBusinessPlanStore((s) => s.setBatterySoldImmediate);
   const setBatteryInstallment12 = useBusinessPlanStore((s) => s.setBatteryInstallment12);
 
   const b2bOptions = useMemo(
     () => ({
       batterySellingPricePerKwh,
+      batteryProductionCostPerKwh,
       batterySoldImmediate,
       batteryInstallment12,
     }),
-    [batterySellingPricePerKwh, batterySoldImmediate, batteryInstallment12],
+    [batterySellingPricePerKwh, batteryProductionCostPerKwh, batterySoldImmediate, batteryInstallment12],
   );
 
-  const infra = useMemo(() => calcInfraForScenario(scenario, quantity), [scenario, quantity]);
+  const infra = useMemo(
+    () => calcInfraForScenario(scenario, quantity, batteryProductionCostPerKwh),
+    [scenario, quantity, batteryProductionCostPerKwh],
+  );
 
-  const taxiInputs = useMemo(() => buildInputsForTaxi(inputs, quantity), [inputs, quantity]);
+  const taxiInputs = useMemo(
+    () => buildInputsForTaxi(inputs, quantity, batteryProductionCostPerKwh),
+    [inputs, quantity, batteryProductionCostPerKwh],
+  );
   const taxiResults = useMemo(() => calculateScenario(taxiInputs, 'taxi'), [taxiInputs]);
 
   const businessEconomics = useMemo(
@@ -63,9 +72,10 @@ export function CalculatorPanel() {
             batterySellingPricePerKwh: 0,
             batterySoldImmediate: true,
             batteryInstallment12: false,
+            batteryProductionCostPerKwh,
           })
         : null,
-    [scenario, inputs, quantity],
+    [scenario, inputs, quantity, batteryProductionCostPerKwh],
   );
 
   const investorSummary = useMemo(() => {
@@ -142,6 +152,33 @@ export function CalculatorPanel() {
           )}
         </div>
 
+        <div className="mt-6 border-t border-slate-200 pt-4">
+          <h3 className="mb-3 text-sm font-semibold text-slate-900">Себестоимость кассеты (производство)</h3>
+          <label className="block text-xs font-medium text-slate-600">
+            1 кВт·ч для вас (руб): {batteryProductionCostPerKwh.toLocaleString('ru-RU')}
+          </label>
+          <input
+            type="range"
+            min={0}
+            max={BATTERY_PRODUCTION_COST_MAX_PER_KWH}
+            step={100}
+            value={batteryProductionCostPerKwh}
+            onChange={(e) => setBatteryProductionCostPerKwh(Number(e.target.value))}
+            className="mt-1 w-full"
+          />
+          <InputField
+            label="Точное значение"
+            value={batteryProductionCostPerKwh}
+            unit="руб/кВт·ч"
+            min={0}
+            step={50}
+            onChange={(v) => setBatteryProductionCostPerKwh(v)}
+          />
+          <p className="mt-2 text-xs leading-relaxed text-slate-600">
+            В сценарии «Такси» влияет на CAPEX парка кассет; в B2B — на себестоимость проданных модулей и прибыль от продажи.
+          </p>
+        </div>
+
         {scenario === 'business' && businessEconomics ? (
           <div className="mt-6 border-t border-slate-200 pt-4">
             <h3 className="mb-3 text-sm font-semibold text-slate-900">Продажа кассет</h3>
@@ -166,10 +203,6 @@ export function CalculatorPanel() {
               onChange={(v) => setBatterySellingPricePerKwh(v)}
             />
             <dl className="mt-3 space-y-1 rounded-lg bg-slate-50 p-3 text-xs text-slate-700">
-              <div className="flex justify-between gap-2">
-                <dt>Себестоимость 1 кВт·ч кассеты</dt>
-                <dd className="font-medium">{BATTERY_PRODUCTION_COST_PER_KWH.toLocaleString('ru-RU')} руб</dd>
-              </div>
               <div className="flex justify-between gap-2">
                 <dt>Прибыль с 1 кассеты (60 кВт·ч)</dt>
                 <dd className="font-medium">{Math.round(businessEconomics.profitPerBatteryModuleRub).toLocaleString('ru-RU')} руб</dd>

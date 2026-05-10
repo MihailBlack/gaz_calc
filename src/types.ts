@@ -56,6 +56,8 @@ export interface BusinessEconomics {
   businessesCount: number;
   batteryModulesSold: number;
   totalBatteryKwh: number;
+  /** Ваша себестоимость производства 1 кВт·ч кассеты */
+  batteryProductionCostPerKwh: number;
   batterySellingPricePerKwh: number;
   revenueFromBatterySale: number;
   costOfGoodsSold: number;

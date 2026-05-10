@@ -9,15 +9,24 @@ export function Chapter5Revenue() {
   const setQuantity = useBusinessPlanStore((s) => s.setQuantity);
   const inputs = useBusinessPlanStore((s) => s.calculatorInputs);
   const batterySellingPricePerKwh = useBusinessPlanStore((s) => s.batterySellingPricePerKwh);
+  const batteryProductionCostPerKwh = useBusinessPlanStore((s) => s.batteryProductionCostPerKwh);
   const batterySoldImmediate = useBusinessPlanStore((s) => s.batterySoldImmediate);
   const batteryInstallment12 = useBusinessPlanStore((s) => s.batteryInstallment12);
 
   const b2bOpts = useMemo(
-    () => ({ batterySellingPricePerKwh, batterySoldImmediate, batteryInstallment12 }),
-    [batterySellingPricePerKwh, batterySoldImmediate, batteryInstallment12],
+    () => ({
+      batterySellingPricePerKwh,
+      batteryProductionCostPerKwh,
+      batterySoldImmediate,
+      batteryInstallment12,
+    }),
+    [batterySellingPricePerKwh, batteryProductionCostPerKwh, batterySoldImmediate, batteryInstallment12],
   );
 
-  const taxiInputs = useMemo(() => buildInputsForTaxi(inputs, quantity), [inputs, quantity]);
+  const taxiInputs = useMemo(
+    () => buildInputsForTaxi(inputs, quantity, batteryProductionCostPerKwh),
+    [inputs, quantity, batteryProductionCostPerKwh],
+  );
   const taxiResults = useMemo(() => calculateScenario(taxiInputs, 'taxi'), [taxiInputs]);
 
   const businessEconomics = useMemo(() => calculateBusinessEconomics(inputs, quantity, b2bOpts), [inputs, quantity, b2bOpts]);
@@ -27,14 +36,14 @@ export function Chapter5Revenue() {
       Array.from({ length: 7 }).map((_, i) => {
         const qty = scenario === 'taxi' ? 200 + i * 100 : 20 + i * 20;
         if (scenario === 'taxi') {
-          const built = buildInputsForTaxi(inputs, qty);
+          const built = buildInputsForTaxi(inputs, qty, batteryProductionCostPerKwh);
           const r = calculateScenario(built, 'taxi');
           return { qty, profitMln: r.monthlyProfit / 1e6 };
         }
         const be = calculateBusinessEconomics(inputs, qty, b2bOpts);
         return { qty, profitMln: be.monthlyProfitFromService / 1e6 };
       }),
-    [inputs, scenario, b2bOpts],
+    [inputs, scenario, b2bOpts, batteryProductionCostPerKwh],
   );
 
   return (

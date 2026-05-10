@@ -7,12 +7,16 @@ import type {
   ScenarioResults,
 } from './types';
 import {
-  BATTERY_PRODUCTION_COST_PER_KWH,
+  BATTERY_PRODUCTION_COST_DEFAULT_PER_KWH,
+  BATTERY_PRODUCTION_COST_MAX_PER_KWH,
   BATTERY_SELLING_PRICE_DEFAULT_PER_KWH,
   BATTERY_SELLING_PRICE_MAX_PER_KWH,
 } from './config/batteryPricing';
 
-export { BATTERY_PRODUCTION_COST_PER_KWH } from './config/batteryPricing';
+export {
+  BATTERY_PRODUCTION_COST_DEFAULT_PER_KWH,
+  BATTERY_PRODUCTION_COST_MAX_PER_KWH,
+} from './config/batteryPricing';
 
 export const B2B_HUB_CAPEX_RUB = 5_000_000;
 export const B2B_LOGISTICS_PER_BUSINESS_MONTH = 5_000;
@@ -21,12 +25,14 @@ export interface CalculateBusinessEconomicsOptions {
   batterySellingPricePerKwh: number;
   batterySoldImmediate: boolean;
   batteryInstallment12: boolean;
+  batteryProductionCostPerKwh: number;
 }
 
 export const DEFAULT_B2B_BATTERY_OPTIONS: CalculateBusinessEconomicsOptions = {
   batterySellingPricePerKwh: BATTERY_SELLING_PRICE_DEFAULT_PER_KWH,
   batterySoldImmediate: true,
   batteryInstallment12: false,
+  batteryProductionCostPerKwh: BATTERY_PRODUCTION_COST_DEFAULT_PER_KWH,
 };
 
 export const DEFAULT_INPUTS: Inputs = {
@@ -94,14 +100,17 @@ export function calculateScenario(inputs: Inputs, scenario: Scenario): ScenarioR
   };
 }
 
-export function calcInfraForTaxi(carsPerDay: number): InfraResult {
+export function calcInfraForTaxi(
+  carsPerDay: number,
+  batteryCostPerKwh: number = BATTERY_PRODUCTION_COST_DEFAULT_PER_KWH,
+): InfraResult {
   const stationsNeeded = Math.ceil(carsPerDay / 43);
   const batteriesNeeded = Math.ceil(carsPerDay * 1.25);
   let generatorsNeeded = 2;
   if (carsPerDay > 200) generatorsNeeded = 3;
   if (carsPerDay > 500) generatorsNeeded = Math.ceil(carsPerDay / 200);
 
-  const capexBatteries = batteriesNeeded * 60 * BATTERY_PRODUCTION_COST_PER_KWH;
+  const capexBatteries = batteriesNeeded * 60 * batteryCostPerKwh;
   const capexStations = stationsNeeded * 1_000_000;
   const capexGenerators = generatorsNeeded * 8_500_000;
   const capexLogistics = 7_000_000;
@@ -149,12 +158,16 @@ export function calcInfraForBusiness(businessesCount: number): InfraResult {
   };
 }
 
-export function calcInfraForScenario(scenario: Scenario, quantity: number): InfraResult {
-  return scenario === 'taxi' ? calcInfraForTaxi(quantity) : calcInfraForBusiness(quantity);
+export function calcInfraForScenario(
+  scenario: Scenario,
+  quantity: number,
+  batteryCostPerKwh: number = BATTERY_PRODUCTION_COST_DEFAULT_PER_KWH,
+): InfraResult {
+  return scenario === 'taxi' ? calcInfraForTaxi(quantity, batteryCostPerKwh) : calcInfraForBusiness(quantity);
 }
 
-export function buildInputsForTaxi(baseInputs: Inputs, carsPerDay: number): Inputs {
-  const infra = calcInfraForTaxi(carsPerDay);
+export function buildInputsForTaxi(baseInputs: Inputs, carsPerDay: number, batteryCostPerKwh?: number): Inputs {
+  const infra = calcInfraForTaxi(carsPerDay, batteryCostPerKwh ?? BATTERY_PRODUCTION_COST_DEFAULT_PER_KWH);
   return {
     ...baseInputs,
     capex: infra.capex.total / 1e6,
@@ -162,9 +175,14 @@ export function buildInputsForTaxi(baseInputs: Inputs, carsPerDay: number): Inpu
   };
 }
 
-export function buildInputsForScenario(baseInputs: Inputs, scenario: Scenario, quantity: number): Inputs {
+export function buildInputsForScenario(
+  baseInputs: Inputs,
+  scenario: Scenario,
+  quantity: number,
+  batteryCostPerKwh?: number,
+): Inputs {
   if (scenario === 'taxi') {
-    return buildInputsForTaxi(baseInputs, quantity);
+    return buildInputsForTaxi(baseInputs, quantity, batteryCostPerKwh);
   }
   return {
     ...baseInputs,
@@ -175,6 +193,10 @@ export function buildInputsForScenario(baseInputs: Inputs, scenario: Scenario, q
 
 function clampBatterySellingPrice(perKwh: number): number {
   return Math.min(Math.max(0, perKwh), BATTERY_SELLING_PRICE_MAX_PER_KWH);
+}
+
+function clampBatteryProductionCost(perKwh: number): number {
+  return Math.min(Math.max(0, sanitizeNonNegative(perKwh)), BATTERY_PRODUCTION_COST_MAX_PER_KWH);
 }
 
 export function calculateBusinessEconomics(
@@ -190,13 +212,14 @@ export function calculateBusinessEconomics(
   const batterySoldImmediate = installment12 ? false : options.batterySoldImmediate;
 
   const batterySellingPricePerKwh = clampBatterySellingPrice(options.batterySellingPricePerKwh);
+  const batteryProductionCostPerKwh = clampBatteryProductionCost(options.batteryProductionCostPerKwh);
 
   const batteryModulesSold = businessesCount * 4;
   const totalBatteryKwh = batteryModulesSold * 60;
   const revenueFromBatterySale = totalBatteryKwh * batterySellingPricePerKwh;
-  const costOfGoodsSold = totalBatteryKwh * BATTERY_PRODUCTION_COST_PER_KWH;
+  const costOfGoodsSold = totalBatteryKwh * batteryProductionCostPerKwh;
   const profitFromBatterySale = revenueFromBatterySale - costOfGoodsSold;
-  const profitPerBatteryModuleRub = (batterySellingPricePerKwh - BATTERY_PRODUCTION_COST_PER_KWH) * 60;
+  const profitPerBatteryModuleRub = (batterySellingPricePerKwh - batteryProductionCostPerKwh) * 60;
 
   const capexYourRub = infra.capex.total;
   const monthlyRevenueFromService = businessesCount * dailyKwhPerBusiness * 30 * inputs.priceToBusiness;
@@ -239,6 +262,7 @@ export function calculateBusinessEconomics(
     businessesCount,
     batteryModulesSold,
     totalBatteryKwh,
+    batteryProductionCostPerKwh,
     batterySellingPricePerKwh,
     revenueFromBatterySale,
     costOfGoodsSold,
@@ -331,7 +355,7 @@ export function generateInvestorSummary(
         : 'не достигается';
 
     const breakevenPrice =
-      be.totalBatteryKwh > 0 ? BATTERY_PRODUCTION_COST_PER_KWH + be.capexYourRub / be.totalBatteryKwh : null;
+      be.totalBatteryKwh > 0 ? be.batteryProductionCostPerKwh + be.capexYourRub / be.totalBatteryKwh : null;
 
     let modeClause = '';
     if (be.installment12) {
