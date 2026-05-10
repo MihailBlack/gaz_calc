@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { buildInputsForScenario, calculateScenario } from '../../calculations';
+import { buildInputsForTaxi, calculateBusinessEconomics, calculateScenario } from '../../calculations';
 import { useBusinessPlanStore } from '../../store/useBusinessPlanStore';
 
 export function Chapter5Revenue() {
@@ -9,16 +9,22 @@ export function Chapter5Revenue() {
   const setQuantity = useBusinessPlanStore((s) => s.setQuantity);
   const inputs = useBusinessPlanStore((s) => s.calculatorInputs);
 
-  const scenarioInputs = useMemo(() => buildInputsForScenario(inputs, scenario, quantity), [inputs, scenario, quantity]);
-  const results = useMemo(() => calculateScenario(scenarioInputs, scenario), [scenarioInputs, scenario]);
+  const taxiInputs = useMemo(() => buildInputsForTaxi(inputs, quantity), [inputs, quantity]);
+  const taxiResults = useMemo(() => calculateScenario(taxiInputs, 'taxi'), [taxiInputs]);
+
+  const businessEconomics = useMemo(() => calculateBusinessEconomics(inputs, quantity), [inputs, quantity]);
 
   const chartData = useMemo(
     () =>
       Array.from({ length: 7 }).map((_, i) => {
         const qty = scenario === 'taxi' ? 200 + i * 100 : 20 + i * 20;
-        const built = buildInputsForScenario(inputs, scenario, qty);
-        const r = calculateScenario(built, scenario);
-        return { qty, profitMln: r.monthlyProfit / 1e6, payback: r.paybackMonths };
+        if (scenario === 'taxi') {
+          const built = buildInputsForTaxi(inputs, qty);
+          const r = calculateScenario(built, 'taxi');
+          return { qty, profitMln: r.monthlyProfit / 1e6 };
+        }
+        const be = calculateBusinessEconomics(inputs, qty);
+        return { qty, profitMln: be.monthlyProfitFromService / 1e6 };
       }),
     [inputs, scenario],
   );
@@ -28,10 +34,9 @@ export function Chapter5Revenue() {
       <div className="book-grid">
         <div className="prose max-w-none">
           <h2>Глава 5: Доходы и прибыль</h2>
-          <p>Формула базового дня: 400 машин × 50 кВт·ч × 14 руб = 280 000 руб выручки в сутки.</p>
+          <p>Формула базового дня для такси: 400 машин × 50 кВт·ч × 14 руб = 280 000 руб выручки в сутки.</p>
           <p>
-            После учета стоимости газа и постоянных расходов проект формирует около 5,2 млн руб чистой прибыли в месяц
-            при базовом объеме.
+            Для B2B ключевая прибыль — разовая продажа кассет и ежемесячная услуга замены по тарифу за кВт·ч и фиксированной логистике на бизнес.
           </p>
         </div>
         <div className="book-card">
@@ -47,8 +52,26 @@ export function Chapter5Revenue() {
             onChange={(e) => setQuantity(Number(e.target.value))}
             className="w-full"
           />
-          <p className="mt-2 text-sm">Прибыль: <strong>{(results.monthlyProfit / 1e6).toFixed(2)} млн/мес</strong></p>
-          <p className="text-sm">Окупаемость: <strong>{Number.isFinite(results.paybackMonths) ? `${results.paybackMonths.toFixed(1)} мес` : 'Не окупается'}</strong></p>
+          {scenario === 'taxi' ? (
+            <>
+              <p className="mt-2 text-sm">
+                Прибыль от замены: <strong>{(taxiResults.monthlyProfit / 1e6).toFixed(2)} млн/мес</strong>
+              </p>
+              <p className="text-sm">
+                Окупаемость:{' '}
+                <strong>{Number.isFinite(taxiResults.paybackMonths) ? `${taxiResults.paybackMonths.toFixed(1)} мес` : 'Не окупается'}</strong>
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="mt-2 text-sm">
+                Прибыль от услуги замены: <strong>{(businessEconomics.monthlyProfitFromService / 1e6).toFixed(2)} млн/мес</strong>
+              </p>
+              <p className="text-sm">
+                Разовая прибыль от продажи кассет: <strong>{(businessEconomics.profitFromBatterySale / 1e6).toFixed(2)} млн</strong>
+              </p>
+            </>
+          )}
           <div className="mt-3 h-48">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData}>
